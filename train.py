@@ -43,7 +43,9 @@ def parse_args():
     parser.add_argument('--input_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
-    parser.add_argument('--max_epoch', type=int, default=100)
+
+    parser.add_argument('--max_epoch', type=int, default=200)
+
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
     parser.add_argument('--seed', type=int, default=2023)
 
@@ -69,6 +71,7 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
     dataset = SceneTextDataset(
         data_dir,
         split=ufo_name,
+
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags
@@ -94,7 +97,6 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
     val_loss = float("inf")
     # model_dir 수정
     wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}'
-    # print(wandb_name)
     model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
