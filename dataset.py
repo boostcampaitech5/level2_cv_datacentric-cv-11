@@ -335,7 +335,7 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
-                 split='train',
+                 ufo_name='train',
                  image_size=2048,
                  crop_size=1024,
                  ignore_tags=[],
@@ -343,12 +343,11 @@ class SceneTextDataset(Dataset):
                  drop_under_threshold=1,
                  color_jitter=True,
                  normalize=True):
-        with open(osp.join(root_dir, 'ufo/{}.json'.format(split)), 'r') as f:
+        with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
             anno = json.load(f)
 
         self.anno = anno
         self.image_fnames = sorted(anno['images'].keys())
-        self.image_dir = osp.join(root_dir, 'img', split)
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
@@ -362,11 +361,10 @@ class SceneTextDataset(Dataset):
         return len(self.image_fnames)
 
     def __getitem__(self, idx):
-        image_fname = self.image_fnames[idx]
-        image_fpath = osp.join(self.image_dir, image_fname)
+        image_fpath = self.image_fnames[idx]
 
         vertices, labels = [], []
-        for word_info in self.anno['images'][image_fname]['words'].values():
+        for word_info in self.anno['images'][image_fpath]['words'].values():
             word_tags = word_info['tags']
 
             ignore_sample = any(elem for elem in word_tags if elem in self.ignore_tags)
@@ -388,7 +386,7 @@ class SceneTextDataset(Dataset):
             drop_under=self.drop_under_threshold
         )
 
-        image = Image.open(image_fpath)
+        image = Image.open('/opt/ml/input/data/medical/img/'+image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
         image, vertices = rotate_img(image, vertices)
