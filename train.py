@@ -54,11 +54,11 @@ def wandb_config(args):
                     'max_epoch'     : args.max_epoch}
     return config_dict
 
-def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, num_workers, batch_size,
+def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, save_interval, ignore_tags):
     dataset = SceneTextDataset(
         data_dir,
-        split='train',
+        ufo_name=ufo_name,
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags
