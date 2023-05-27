@@ -1,0 +1,5 @@
+pths/
+trained_models/
+wandb/
+predictions/
+__pycache__/
