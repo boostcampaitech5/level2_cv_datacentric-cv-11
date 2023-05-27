@@ -16,8 +16,18 @@ from dataset import SceneTextDataset
 from model import EAST
 
 import wandb
+import numpy as np
+import random
 
-
+def seed_everything(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
+    # torch.backends.cudnn.deterministic = True     #활성화시 속도 감소 이슈 있으므로 배포시 활성화
+    # torch.backends.cudnn.benchmark = False    
+    np.random.seed(seed)      #dataset 초기화 시 np.random사용
+    random.seed(seed) 
+    
 def parse_args():
     parser = ArgumentParser()
 
@@ -38,6 +48,7 @@ def parse_args():
     parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
+    parser.add_argument('--seed', type=int, default=2023)
 
     args = parser.parse_args()
 
@@ -56,7 +67,8 @@ def wandb_config(args):
     return config_dict
 
 def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, ignore_tags):
+                learning_rate, max_epoch, save_interval, ignore_tags, seed):
+    seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
         ufo_name=ufo_name,
