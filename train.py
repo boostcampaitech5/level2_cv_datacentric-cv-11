@@ -24,8 +24,7 @@ def parse_args():
     # Conventional args
     parser.add_argument('--data_dir', type=str,
                         default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/medical'))
-    # parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
-    #                                                                     '/opt/ml/level2_cv_datacentric-cv-11/trained_models'))
+
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
                                                                         'trained_models'))
 
@@ -128,17 +127,13 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
 
         ckpt_fpath_latest = osp.join(model_dir, 'latest.pth')
         torch.save(model.state_dict(), ckpt_fpath_latest)
-        # print('='*50) 
-        # print(f'save latest pth file:{ckpt_fpath_latest}')
-        # print('='*50) 
+
 
         if val_loss > now_val_loss:
             val_loss = now_val_loss
             ckpt_fpath = osp.join(model_dir, f'best_{epoch+1}.pth')
             torch.save(model.state_dict(), ckpt_fpath)
-            # print('='*50) 
-            # print(f'Save best pth file:{ckpt_fpath}')
-            # print('='*50) 
+
             # pth 파일 저장 리스트
             file_list = os.listdir(model_dir)
             # best가 있는 pth 파일만 따로 리스트
@@ -146,9 +141,7 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
             if len(best_file_list) >= 2:
                 file_path = os.path.join(model_dir, best_file_list[-2])
                 os.remove(file_path)
-                # print('='*50) 
-                # print(f'delete old best pth file:{file_path}')
-                # print('='*50) 
+
             
 
 def main(args):
