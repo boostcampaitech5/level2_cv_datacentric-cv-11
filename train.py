@@ -15,6 +15,7 @@ from east_dataset import EASTDataset
 from dataset import SceneTextDataset
 from model import EAST
 
+import wandb
 
 
 def parse_args():
@@ -27,8 +28,8 @@ def parse_args():
                                                                         'trained_models'))
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
+    parser.add_argument('--ufo_name', default='train') #추가
     parser.add_argument('--num_workers', type=int, default=8)
-
     parser.add_argument('--image_size', type=int, default=2048)
     parser.add_argument('--input_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=8)
@@ -41,11 +42,19 @@ def parse_args():
 
     if args.input_size % 32 != 0:
         raise ValueError('`input_size` must be a multiple of 32')
-
     return args
 
+def wandb_config(args):
+    config_dict  = {'data_dir'      : args.data_dir,
+                    'ufo_name'      : args.ufo_name,
+                    'image_size'    : args.image_size,
+                    'input_size'    : args.input_size,
+                    'batch_size'    : args.batch_size,
+                    'learning_rate' : args.learning_rate,
+                    'max_epoch'     : args.max_epoch}
+    return config_dict
 
-def do_training(data_dir, model_dir, device, image_size, input_size, num_workers, batch_size,
+def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, save_interval, ignore_tags):
     dataset = SceneTextDataset(
         data_dir,
@@ -69,6 +78,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
+    wandb.init(config=wandb_config(args),project='Data-Centric', entity='cv11_aivengers',name=f'{args.ufo_name}_epoch={args.max_epoch}') #수정
     model.train()
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
@@ -90,11 +100,19 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
                     'IoU loss': extra_info['iou_loss']
                 }
                 pbar.set_postfix(val_dict)
+                total_loss={'total_loss': sum(val_dict.values())}
+                wandb.log(val_dict, step = epoch)
+                wandb.log(total_loss,step=epoch)
+
 
         scheduler.step()
 
         print('Mean loss: {:.4f} | Elapsed time: {}'.format(
             epoch_loss / num_batches, timedelta(seconds=time.time() - epoch_start)))
+        mean_loss={'mean_loss':epoch_loss / num_batches}
+        wandb.log(mean_loss,step=epoch)
+
+        
 
         if (epoch + 1) % save_interval == 0:
             if not osp.exists(model_dir):
@@ -102,7 +120,7 @@ def do_training(data_dir, model_dir, device, image_size, input_size, num_workers
 
             ckpt_fpath = osp.join(model_dir, 'latest.pth')
             torch.save(model.state_dict(), ckpt_fpath)
-
+            
 
 def main(args):
     do_training(**args.__dict__)
