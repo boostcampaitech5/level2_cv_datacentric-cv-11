@@ -34,10 +34,8 @@ def parse_args():
     # Conventional args
     parser.add_argument('--data_dir', type=str,
                         default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/medical'))
-
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
                                                                         'trained_models'))
-
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--ufo_name', default='train') #추가
     parser.add_argument('--num_workers', type=int, default=8)
@@ -45,8 +43,9 @@ def parse_args():
     parser.add_argument('--input_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
+
     parser.add_argument('--max_epoch', type=int, default=200)
-    parser.add_argument('--save_interval', type=int, default=5)
+
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
     parser.add_argument('--seed', type=int, default=2023)
 
@@ -67,11 +66,12 @@ def wandb_config(args):
     return config_dict
 
 def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, save_interval, ignore_tags, seed):
+                learning_rate, max_epoch, ignore_tags, seed):
     seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
-        ufo_name=ufo_name,
+        split=ufo_name,
+
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags
@@ -97,7 +97,6 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
     val_loss = float("inf")
     # model_dir 수정
     wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}'
-    print(wandb_name)
     model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
@@ -123,7 +122,6 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
                 wandb.log(val_dict, step = epoch)
                 wandb.log(total_loss,step=epoch)
 
-
         scheduler.step()
 
         print('Mean loss: {:.4f} | Elapsed time: {}'.format(
@@ -140,26 +138,20 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
         ckpt_fpath_latest = osp.join(model_dir, 'latest.pth')
         torch.save(model.state_dict(), ckpt_fpath_latest)
 
-
         if val_loss > now_val_loss:
             val_loss = now_val_loss
-            ckpt_fpath = osp.join(model_dir, f'best_{epoch+1}.pth')
-            torch.save(model.state_dict(), ckpt_fpath)
-
-            # pth 파일 저장 리스트
             file_list = os.listdir(model_dir)
             # best가 있는 pth 파일만 따로 리스트
-            best_file_list = sorted([i for i in file_list if 'best' in i])
-            if len(best_file_list) >= 2:
-                file_path = os.path.join(model_dir, best_file_list[-2])
-                os.remove(file_path)
-
+            best_file_path = [i for i in file_list if 'best' in i]
+            if best_file_path: # 만약에 best가 있으면
+                # 기존의 best를 삭제
+                os.remove(osp.join(model_dir, best_file_path[0]))
+            ckpt_fpath = osp.join(model_dir, f'best_{epoch+1}.pth')
+            torch.save(model.state_dict(), ckpt_fpath)
             
-
 def main(args):
     print(args.__dict__)
     do_training(**args.__dict__)
-
 
 if __name__ == '__main__':
     args = parse_args()
