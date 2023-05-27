@@ -23,7 +23,9 @@ def parse_args():
 
     # Conventional args
     parser.add_argument('--data_dir', type=str,
-                        default=os.environ.get('SM_CHANNEL_TRAIN', '../data/medical'))
+                        default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/medical'))
+    # parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
+    #                                                                     '/opt/ml/level2_cv_datacentric-cv-11/trained_models'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR',
                                                                         'trained_models'))
 
@@ -34,7 +36,7 @@ def parse_args():
     parser.add_argument('--input_size', type=int, default=1024)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--learning_rate', type=float, default=1e-3)
-    parser.add_argument('--max_epoch', type=int, default=150)
+    parser.add_argument('--max_epoch', type=int, default=200)
     parser.add_argument('--save_interval', type=int, default=5)
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
 
@@ -79,7 +81,13 @@ def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, nu
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
     wandb.init(config=wandb_config(args),project='Data-Centric', entity='cv11_aivengers',name=f'{args.ufo_name}_epoch={args.max_epoch}') #수정
+    
     model.train()
+    val_loss = float("inf")
+    # model_dir 수정
+    wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}'
+    print(wandb_name)
+    model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=num_batches) as pbar:
@@ -112,17 +120,39 @@ def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, nu
         mean_loss={'mean_loss':epoch_loss / num_batches}
         wandb.log(mean_loss,step=epoch)
 
-        
+        now_val_loss = epoch_loss / num_batches
 
-        if (epoch + 1) % save_interval == 0:
-            if not osp.exists(model_dir):
-                os.makedirs(model_dir)
+        # 매 에폭마다 latest 저장
+        if not osp.exists(model_dir):
+            os.makedirs(model_dir)
 
-            ckpt_fpath = osp.join(model_dir, 'latest.pth')
+        ckpt_fpath_latest = osp.join(model_dir, 'latest.pth')
+        torch.save(model.state_dict(), ckpt_fpath_latest)
+        # print('='*50) 
+        # print(f'save latest pth file:{ckpt_fpath_latest}')
+        # print('='*50) 
+
+        if val_loss > now_val_loss:
+            val_loss = now_val_loss
+            ckpt_fpath = osp.join(model_dir, f'best_{epoch+1}.pth')
             torch.save(model.state_dict(), ckpt_fpath)
+            # print('='*50) 
+            # print(f'Save best pth file:{ckpt_fpath}')
+            # print('='*50) 
+            # pth 파일 저장 리스트
+            file_list = os.listdir(model_dir)
+            # best가 있는 pth 파일만 따로 리스트
+            best_file_list = sorted([i for i in file_list if 'best' in i])
+            if len(best_file_list) >= 2:
+                file_path = os.path.join(model_dir, best_file_list[-2])
+                os.remove(file_path)
+                # print('='*50) 
+                # print(f'delete old best pth file:{file_path}')
+                # print('='*50) 
             
 
 def main(args):
+    print(args.__dict__)
     do_training(**args.__dict__)
 
 
