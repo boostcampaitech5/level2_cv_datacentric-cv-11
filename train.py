@@ -16,7 +16,18 @@ from dataset import SceneTextDataset
 from model import EAST
 
 import wandb
+import numpy as np
+import random
 
+def seed_everything(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
+    # torch.backends.cudnn.deterministic = True     #활성화시 속도 감소 이슈 있으므로 배포시 활성화
+    # torch.backends.cudnn.benchmark = False    
+    np.random.seed(seed)      #dataset 초기화 시 np.random사용
+    random.seed(seed) 
+    
 def parse_args():
     parser = ArgumentParser()
 
@@ -34,6 +45,7 @@ def parse_args():
     parser.add_argument('--learning_rate', type=float, default=1e-3)
     parser.add_argument('--max_epoch', type=int, default=100)
     parser.add_argument('--ignore_tags', type=list, default=['masked', 'excluded-region', 'maintable', 'stamp'])
+    parser.add_argument('--seed', type=int, default=2023)
 
     args = parser.parse_args()
 
@@ -51,8 +63,9 @@ def wandb_config(args):
                     'max_epoch'     : args.max_epoch}
     return config_dict
 
-def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, num_workers, batch_size,
-                learning_rate, max_epoch, ignore_tags):
+def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
+                learning_rate, max_epoch, ignore_tags, seed):
+    seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
         split=ufo_name,
@@ -81,7 +94,7 @@ def do_training(data_dir, model_dir, device, ufo_name,image_size, input_size, nu
     val_loss = float("inf")
     # model_dir 수정
     wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}'
-    print(wandb_name)
+    # print(wandb_name)
     model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()
