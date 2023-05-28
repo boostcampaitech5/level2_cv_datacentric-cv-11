@@ -342,7 +342,12 @@ class SceneTextDataset(Dataset):
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
                  color_jitter=True,
-                 normalize=True):
+                 normalize=True,
+                 rotate=False,
+                 brightness_contrast = False,
+                 clahe = False,
+                 motion_blur = False,
+                 ):
         with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
             anno = json.load(f)
 
@@ -351,6 +356,7 @@ class SceneTextDataset(Dataset):
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
+        self.rotate, self.brightness_contrast, self.clahe, self.motion_blur = rotate, brightness_contrast, clahe, motion_blur
 
         self.ignore_tags = ignore_tags
 
@@ -399,8 +405,22 @@ class SceneTextDataset(Dataset):
         funcs = []
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
+
+        if self.rotate:
+            funcs.append(A.Rotate(limit=10, p=0.5))  # 좌우 회전 (최대 10도까지)
+
+        if self.brightness_contrast:
+            funcs.append(A.RandomBrightnessContrast(p=0.5))# 랜덤 밝기 대비 조절 
+            
+        if self.clahe:
+            funcs.append(A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5))
+
+        if self.motion_blur:
+            funcs.append(A.MotionBlur(p=0.5))
+
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+
         transform = A.Compose(funcs)
 
         image = transform(image=image)['image']
