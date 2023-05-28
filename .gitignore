@@ -3,3 +3,5 @@ trained_models/
 wandb/
 predictions/
 __pycache__/
+nohup.out
+*sh
