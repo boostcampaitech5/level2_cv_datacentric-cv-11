@@ -70,7 +70,7 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
     seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
-        split=ufo_name,
+        ufo_name =ufo_name,
 
         image_size=image_size,
         crop_size=input_size,
