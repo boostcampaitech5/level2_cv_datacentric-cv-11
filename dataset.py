@@ -406,8 +406,8 @@ class SceneTextDataset(Dataset):
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
 
-        if self.rotate:
-            funcs.append(A.Rotate(limit=10, p=0.5))  # 좌우 회전 (최대 10도까지)
+        # if self.rotate:
+        #     funcs.append(A.Rotate(limit=10, p=0.5))  # 좌우 회전 (최대 10도까지)
 
         if self.brightness_contrast:
             funcs.append(A.RandomBrightnessContrast(p=0.5))# 랜덤 밝기 대비 조절 
