@@ -218,6 +218,7 @@ def crop_img(img, vertices, labels, length):
     cnt = 0
     while flag and cnt < 1000:
         cnt += 1
+        np.random.seed(seed)
         start_w = int(np.random.rand() * remain_w)
         start_h = int(np.random.rand() * remain_h)
         flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
@@ -276,6 +277,7 @@ def adjust_height(img, vertices, ratio=0.2):
         img         : adjusted PIL Image
         new_vertices: adjusted vertices
     '''
+    np.random.seed(seed)
     ratio_h = 1 + ratio * (np.random.rand() * 2 - 1)
     old_h = img.height
     new_h = int(np.around(old_h * ratio_h))
@@ -299,6 +301,7 @@ def rotate_img(img, vertices, angle_range=10):
     '''
     center_x = (img.width - 1) / 2
     center_y = (img.height - 1) / 2
+    np.random.seed(seed)
     angle = angle_range * (np.random.rand() * 2 - 1)
     img = img.rotate(angle, Image.BILINEAR)
     new_vertices = np.zeros(vertices.shape)
