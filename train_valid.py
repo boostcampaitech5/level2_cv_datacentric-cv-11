@@ -79,13 +79,9 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
         ignore_tags=ignore_tags
     )
     dataset = EASTDataset(dataset)
-    print(dataset)
-    print(len(dataset))
     train_indices, val_indices = train_test_split(
-            range(len(dataset)), test_size=0.2
+            range(len(dataset)), test_size=0.2, random_state=args.seed
     )
-    print(train_indices)
-    print(len(train_indices))
     dataset_ = copy.deepcopy(dataset)
     trainset = Subset(dataset, train_indices)
     valset = Subset(dataset_, val_indices)
@@ -103,8 +99,6 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
         shuffle=True,
         num_workers=num_workers
     )
-    print(len(dataset))
-    print(len(trainset))
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = EAST()
     model.to(device)
@@ -169,10 +163,10 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
                 wandb.log(val_total_loss,step=epoch)
             val_mean_loss={'val_mean_loss':epoch_loss / val_num_batches}
             wandb.log(val_mean_loss,step=epoch)
-            print(f'Mean loss: {epoch_loss / num_batches}')
+            print(f'Mean loss: {epoch_loss / val_num_batches}')
 
 
-        now_val_loss = epoch_loss / num_batches
+        now_val_loss = epoch_loss / val_num_batches
 
         # 매 에폭마다 latest 저장
         if not osp.exists(model_dir):
