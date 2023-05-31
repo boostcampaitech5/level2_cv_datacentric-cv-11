@@ -10,6 +10,7 @@ import albumentations as A
 from torch.utils.data import Dataset
 from shapely.geometry import Polygon
 
+seed = 2023
 
 def cal_distance(x1, y1, x2, y2):
     '''calculate the Euclidean distance'''
@@ -346,10 +347,11 @@ class SceneTextDataset(Dataset):
                  drop_under_threshold=1,
                  color_jitter=True,
                  normalize=True,
-                 rotate=False,
+                 rotate=True,
                  brightness_contrast = False,
                  clahe = False,
                  motion_blur = False,
+                 all_aug = False
                  ):
         with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
             anno = json.load(f)
@@ -360,6 +362,7 @@ class SceneTextDataset(Dataset):
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
         self.rotate, self.brightness_contrast, self.clahe, self.motion_blur = rotate, brightness_contrast, clahe, motion_blur
+        self.all_aug = all_aug
 
         self.ignore_tags = ignore_tags
 
@@ -395,10 +398,11 @@ class SceneTextDataset(Dataset):
             drop_under=self.drop_under_threshold
         )
 
-        image = Image.open('/opt/ml/input/data/medical/img/'+image_fpath)
+        image = Image.open('/opt/ml/input/data/medical/img/train/'+image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices)
-        image, vertices = rotate_img(image, vertices)
+        if self.rotate:
+            image, vertices = rotate_img(image, vertices)
         image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
         if image.mode != 'RGB':
@@ -409,20 +413,22 @@ class SceneTextDataset(Dataset):
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
 
-        # if self.rotate:
-        #     funcs.append(A.Rotate(limit=10, p=0.5))  # 좌우 회전 (최대 10도까지)
-
         if self.brightness_contrast:
             funcs.append(A.RandomBrightnessContrast(p=0.5))# 랜덤 밝기 대비 조절 
             
         if self.clahe:
             funcs.append(A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5))
 
+        if self.all_aug:
+            funcs.append(A.OneOf([A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5),
+                                  A.RandomBrightnessContrast(p=0.5)]
+                                  ,p=0.5))
+
         if self.motion_blur:
             funcs.append(A.MotionBlur(p=0.5))
 
         if self.normalize:
-            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+            funcs.append(A.Normalize(mean=(0.83245455, 0.82994536, 0.82689934), std=(0.1738135 , 0.17779705, 0.18234676)))
 
         transform = A.Compose(funcs)
 
