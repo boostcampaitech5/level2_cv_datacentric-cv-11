@@ -352,7 +352,7 @@ class SceneTextDataset(Dataset):
                  brightness_contrast = False,
                  clahe = False,
                  motion_blur = True,
-                 all_aug = False
+                 all_aug = False,
                  to_grey = False,
                  ):
         with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
