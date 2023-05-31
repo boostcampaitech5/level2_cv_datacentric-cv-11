@@ -8,3 +8,4 @@ nohup*
 tools/*
 nohup.out
 *sh
+tools/train_*
