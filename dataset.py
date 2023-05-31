@@ -352,6 +352,7 @@ class SceneTextDataset(Dataset):
                  clahe = False,
                  motion_blur = True,
                  all_aug = False
+                 to_grey = False,
                  ):
         with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
             anno = json.load(f)
@@ -361,7 +362,7 @@ class SceneTextDataset(Dataset):
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
-        self.rotate, self.brightness_contrast, self.clahe, self.motion_blur = rotate, brightness_contrast, clahe, motion_blur
+        self.rotate, self.brightness_contrast, self.clahe, self.motion_blur, self.to_grey = rotate, brightness_contrast, clahe, motion_blur, to_grey
         self.all_aug = all_aug
 
         self.ignore_tags = ignore_tags
@@ -426,6 +427,9 @@ class SceneTextDataset(Dataset):
 
         if self.motion_blur:
             funcs.append(A.MotionBlur(p=0.5))
+        
+        if self.to_grey:
+            funcs.append(A.ToGray(p=0.5))
 
         if self.normalize:
             funcs.append(A.Normalize(mean=(0.83245455, 0.82994536, 0.82689934), std=(0.1738135 , 0.17779705, 0.18234676)))
