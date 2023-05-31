@@ -351,7 +351,7 @@ class SceneTextDataset(Dataset):
                  rotate=True,
                  brightness_contrast = False,
                  clahe = False,
-                 motion_blur = True,
+                 motion_blur = False,
                  all_aug = False,
                  to_grey = False,
                  ):
@@ -401,7 +401,7 @@ class SceneTextDataset(Dataset):
             drop_under=self.drop_under_threshold
         )
 
-        image = Image.open('/opt/ml/input/data/medical/img/train/'+image_fpath)
+        image = Image.open('/opt/ml/input/data/medical/img/'+image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
         image, vertices = adjust_height(image, vertices, self.seed)
         if self.rotate:
