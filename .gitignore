@@ -10,3 +10,4 @@ nohup.out
 *sh
 tools/train_*
 tools/dataset_*
+train.txt
