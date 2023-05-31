@@ -9,3 +9,4 @@ tools/*
 nohup.out
 *sh
 tools/train_*
+tools/dataset_*
