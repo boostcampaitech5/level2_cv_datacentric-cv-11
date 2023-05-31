@@ -5,3 +5,4 @@ predictions/
 __pycache__/
 train.sh
 nohup*
+tools/*
