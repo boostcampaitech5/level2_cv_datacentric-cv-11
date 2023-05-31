@@ -25,8 +25,10 @@ def parse_args():
     parser.add_argument('--output_dir', default=os.environ.get('SM_OUTPUT_DATA_DIR', 'predictions'))
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
-    parser.add_argument('--input_size', type=int, default=2048)
+    parser.add_argument('--input_size', type=int, default=512)
     parser.add_argument('--batch_size', type=int, default=5)
+    parser.add_argument('--pth_dir', type=str, default='')
+    parser.add_argument('--csv_name', type=str, default='')
 
     args = parser.parse_args()
 
@@ -67,7 +69,7 @@ def main(args):
     model = EAST(pretrained=False).to(args.device)
 
     # Get paths to checkpoint files
-    ckpt_fpath = osp.join(args.model_dir, 'latest.pth')
+    ckpt_fpath = osp.join(args.model_dir, args.pth_dir)
 
     if not osp.exists(args.output_dir):
         os.makedirs(args.output_dir)
@@ -79,7 +81,7 @@ def main(args):
                                 args.batch_size, split='test')
     ufo_result['images'].update(split_result['images'])
 
-    output_fname = 'output.csv'
+    output_fname = f'{args.csv_name}.csv'
     with open(osp.join(args.output_dir, output_fname), 'w') as f:
         json.dump(ufo_result, f, indent=4)
 
