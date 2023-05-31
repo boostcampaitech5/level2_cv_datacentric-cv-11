@@ -10,7 +10,6 @@ import albumentations as A
 from torch.utils.data import Dataset
 from shapely.geometry import Polygon
 
-seed = 2023
 
 def cal_distance(x1, y1, x2, y2):
     '''calculate the Euclidean distance'''
@@ -186,7 +185,7 @@ def is_cross_text(start_loc, length, vertices):
     return False
 
 
-def crop_img(img, vertices, labels, length, seed):
+def crop_img(img, vertices, labels, length):
     '''crop img patches to obtain batch and augment
     Input:
         img         : PIL Image
@@ -219,7 +218,6 @@ def crop_img(img, vertices, labels, length, seed):
     cnt = 0
     while flag and cnt < 1000:
         cnt += 1
-        np.random.seed(seed)
         start_w = int(np.random.rand() * remain_w)
         start_h = int(np.random.rand() * remain_h)
         flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
@@ -268,7 +266,7 @@ def resize_img(img, vertices, size):
     return img, new_vertices
 
 
-def adjust_height(img, vertices, seed, ratio=0.2):
+def adjust_height(img, vertices, ratio=0.2):
     '''adjust height of image to aug data
     Input:
         img         : PIL Image
@@ -278,7 +276,6 @@ def adjust_height(img, vertices, seed, ratio=0.2):
         img         : adjusted PIL Image
         new_vertices: adjusted vertices
     '''
-    np.random.seed(seed)
     ratio_h = 1 + ratio * (np.random.rand() * 2 - 1)
     old_h = img.height
     new_h = int(np.around(old_h * ratio_h))
@@ -290,7 +287,7 @@ def adjust_height(img, vertices, seed, ratio=0.2):
     return img, new_vertices
 
 
-def rotate_img(img, vertices, seed, angle_range=10):
+def rotate_img(img, vertices, angle_range=10):
     '''rotate image [-10, 10] degree to aug data
     Input:
         img         : PIL Image
@@ -302,7 +299,6 @@ def rotate_img(img, vertices, seed, angle_range=10):
     '''
     center_x = (img.width - 1) / 2
     center_y = (img.height - 1) / 2
-    np.random.seed(seed)
     angle = angle_range * (np.random.rand() * 2 - 1)
     img = img.rotate(angle, Image.BILINEAR)
     new_vertices = np.zeros(vertices.shape)
@@ -339,35 +335,25 @@ def filter_vertices(vertices, labels, ignore_under=0, drop_under=0):
 
 class SceneTextDataset(Dataset):
     def __init__(self, root_dir,
-                 ufo_name='train',
+                 split='train',
                  image_size=2048,
                  crop_size=1024,
                  ignore_tags=[],
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
-                 seed=2023,
                  color_jitter=True,
-                 normalize=True,
-                 rotate=True,
-                 brightness_contrast = False,
-                 clahe = False,
-                 motion_blur = True,
-                 all_aug = False
-                 to_grey = False,
-                 ):
-        with open(osp.join(root_dir, 'ufo/{}.json'.format(ufo_name)), 'r') as f:
+                 normalize=True):
+        with open(osp.join(root_dir, 'ufo/{}.json'.format(split)), 'r') as f:
             anno = json.load(f)
 
         self.anno = anno
         self.image_fnames = sorted(anno['images'].keys())
+        self.image_dir = osp.join(root_dir, 'img', split)
 
         self.image_size, self.crop_size = image_size, crop_size
         self.color_jitter, self.normalize = color_jitter, normalize
-        self.rotate, self.brightness_contrast, self.clahe, self.motion_blur, self.to_grey = rotate, brightness_contrast, clahe, motion_blur, to_grey
-        self.all_aug = all_aug
 
         self.ignore_tags = ignore_tags
-        self.seed=seed
 
         self.drop_under_threshold = drop_under_threshold
         self.ignore_under_threshold = ignore_under_threshold
@@ -376,10 +362,11 @@ class SceneTextDataset(Dataset):
         return len(self.image_fnames)
 
     def __getitem__(self, idx):
-        image_fpath = self.image_fnames[idx]
+        image_fname = self.image_fnames[idx]
+        image_fpath = osp.join(self.image_dir, image_fname)
 
         vertices, labels = [], []
-        for word_info in self.anno['images'][image_fpath]['words'].values():
+        for word_info in self.anno['images'][image_fname]['words'].values():
             word_tags = word_info['tags']
 
             ignore_sample = any(elem for elem in word_tags if elem in self.ignore_tags)
@@ -401,12 +388,11 @@ class SceneTextDataset(Dataset):
             drop_under=self.drop_under_threshold
         )
 
-        image = Image.open('/opt/ml/input/data/medical/img/train/'+image_fpath)
+        image = Image.open(image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
-        image, vertices = adjust_height(image, vertices, self.seed)
-        if self.rotate:
-            image, vertices = rotate_img(image, vertices, self.seed)
-        image, vertices = crop_img(image, vertices, labels, self.crop_size, self.seed)
+        image, vertices = adjust_height(image, vertices)
+        image, vertices = rotate_img(image, vertices)
+        image, vertices = crop_img(image, vertices, labels, self.crop_size)
 
         if image.mode != 'RGB':
             image = image.convert('RGB')
@@ -415,27 +401,8 @@ class SceneTextDataset(Dataset):
         funcs = []
         if self.color_jitter:
             funcs.append(A.ColorJitter(0.5, 0.5, 0.5, 0.25))
-
-        if self.brightness_contrast:
-            funcs.append(A.RandomBrightnessContrast(p=0.5))# 랜덤 밝기 대비 조절 
-            
-        if self.clahe:
-            funcs.append(A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5))
-
-        if self.all_aug:
-            funcs.append(A.OneOf([A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), always_apply=False, p=0.5),
-                                  A.RandomBrightnessContrast(p=0.5)]
-                                  ,p=0.5))
-
-        if self.motion_blur:
-            funcs.append(A.MotionBlur(p=0.5))
-        
-        if self.to_grey:
-            funcs.append(A.ToGray(p=0.5))
-
         if self.normalize:
-            funcs.append(A.Normalize(mean=(0.83245455, 0.82994536, 0.82689934), std=(0.1738135 , 0.17779705, 0.18234676)))
-
+            funcs.append(A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
         transform = A.Compose(funcs)
 
         image = transform(image=image)['image']
