@@ -186,7 +186,7 @@ def is_cross_text(start_loc, length, vertices):
     return False
 
 
-def crop_img(img, vertices, labels, length):
+def crop_img(img, vertices, labels, length, seed):
     '''crop img patches to obtain batch and augment
     Input:
         img         : PIL Image
@@ -268,7 +268,7 @@ def resize_img(img, vertices, size):
     return img, new_vertices
 
 
-def adjust_height(img, vertices, ratio=0.2):
+def adjust_height(img, vertices, seed, ratio=0.2):
     '''adjust height of image to aug data
     Input:
         img         : PIL Image
@@ -290,7 +290,7 @@ def adjust_height(img, vertices, ratio=0.2):
     return img, new_vertices
 
 
-def rotate_img(img, vertices, angle_range=10):
+def rotate_img(img, vertices, seed, angle_range=10):
     '''rotate image [-10, 10] degree to aug data
     Input:
         img         : PIL Image
@@ -345,6 +345,7 @@ class SceneTextDataset(Dataset):
                  ignore_tags=[],
                  ignore_under_threshold=10,
                  drop_under_threshold=1,
+                 seed=2023,
                  color_jitter=True,
                  normalize=True,
                  rotate=True,
@@ -366,6 +367,7 @@ class SceneTextDataset(Dataset):
         self.all_aug = all_aug
 
         self.ignore_tags = ignore_tags
+        self.seed=seed
 
         self.drop_under_threshold = drop_under_threshold
         self.ignore_under_threshold = ignore_under_threshold
@@ -401,10 +403,10 @@ class SceneTextDataset(Dataset):
 
         image = Image.open('/opt/ml/input/data/medical/img/train/'+image_fpath)
         image, vertices = resize_img(image, vertices, self.image_size)
-        image, vertices = adjust_height(image, vertices)
+        image, vertices = adjust_height(image, vertices, self.seed)
         if self.rotate:
-            image, vertices = rotate_img(image, vertices)
-        image, vertices = crop_img(image, vertices, labels, self.crop_size)
+            image, vertices = rotate_img(image, vertices, self.seed)
+        image, vertices = crop_img(image, vertices, labels, self.crop_size, self.seed)
 
         if image.mode != 'RGB':
             image = image.convert('RGB')
