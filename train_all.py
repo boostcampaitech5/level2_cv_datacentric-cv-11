@@ -67,17 +67,17 @@ def wandb_config(args):
 
 def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, ignore_tags, seed):
-    # seed_everything(args.seed)
+    seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
         ufo_name =ufo_name,
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags,
-        rotate=True,
+        rotate = True,
         brightness_contrast = True,
-        clahe = False,
-        motion_blur = False,
+        clahe = True,
+        motion_blur = True,
     )
     dataset = EASTDataset(dataset)
     num_batches = math.ceil(len(dataset) / batch_size)
@@ -94,12 +94,12 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[max_epoch // 2], gamma=0.1)
 
-    wandb.init(config=wandb_config(args),project='Data-Centric', entity='cv11_aivengers',name=f'{args.ufo_name}_epoch={args.max_epoch}_brightness_512') #수정
+    wandb.init(config=wandb_config(args),project='Data-Centric', entity='cv11_aivengers',name=f'{args.ufo_name}_epoch={args.max_epoch}_all_512') #수정
     
     model.train()
     val_loss = float("inf")
     # model_dir 수정
-    wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}_brightness_512'
+    wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}_all_512'
     model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
         epoch_loss, epoch_start = 0, time.time()

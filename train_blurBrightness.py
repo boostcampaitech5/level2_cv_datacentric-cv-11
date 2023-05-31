@@ -77,7 +77,7 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
         rotate=True,
         brightness_contrast = True,
         clahe = False,
-        motion_blur = False,
+        motion_blur = True,
     )
     dataset = EASTDataset(dataset)
     num_batches = math.ceil(len(dataset) / batch_size)
