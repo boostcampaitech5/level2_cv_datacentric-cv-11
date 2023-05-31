@@ -6,3 +6,5 @@ __pycache__/
 train.sh
 nohup*
 tools/*
+nohup.out
+*sh

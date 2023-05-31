@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 
 import torch
 from torch import cuda
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torch.optim import lr_scheduler
 from tqdm import tqdm
 
@@ -18,6 +18,9 @@ from model import EAST
 import wandb
 import numpy as np
 import random
+
+from sklearn.model_selection import train_test_split
+import copy
 
 def seed_everything(seed):
     torch.manual_seed(seed)
@@ -67,24 +70,35 @@ def wandb_config(args):
 
 def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, num_workers, batch_size,
                 learning_rate, max_epoch, ignore_tags, seed):
-    seed_everything(args.seed)
+    # seed_everything(args.seed)
     dataset = SceneTextDataset(
         data_dir,
         ufo_name=ufo_name,
-
         image_size=image_size,
         crop_size=input_size,
         ignore_tags=ignore_tags
     )
     dataset = EASTDataset(dataset)
-    num_batches = math.ceil(len(dataset) / batch_size)
+    train_indices, val_indices = train_test_split(
+            range(len(dataset)), test_size=0.2, random_state=args.seed
+    )
+    dataset_ = copy.deepcopy(dataset)
+    trainset = Subset(dataset, train_indices)
+    valset = Subset(dataset_, val_indices)
+    num_batches = math.ceil(len(trainset) / batch_size)
     train_loader = DataLoader(
-        dataset,
+        trainset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers
     )
-
+    val_num_batches = math.ceil(len(valset) / batch_size)
+    val_loader = DataLoader(
+        valset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers
+    )
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = EAST()
     model.to(device)
@@ -93,12 +107,12 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
 
     wandb.init(config=wandb_config(args),project='Data-Centric', entity='cv11_aivengers',name=f'{args.ufo_name}_epoch={args.max_epoch}') #수정
     
-    model.train()
     val_loss = float("inf")
     # model_dir 수정
     wandb_name = f'{args.ufo_name}_epoch={args.max_epoch}'
     model_dir = osp.join(model_dir, wandb_name)
     for epoch in range(max_epoch):
+        model.train()
         epoch_loss, epoch_start = 0, time.time()
         with tqdm(total=num_batches) as pbar:
             for img, gt_score_map, gt_geo_map, roi_mask in train_loader:
@@ -129,7 +143,30 @@ def do_training(data_dir, model_dir, device, ufo_name, image_size, input_size, n
         mean_loss={'mean_loss':epoch_loss / num_batches}
         wandb.log(mean_loss,step=epoch)
 
-        now_val_loss = epoch_loss / num_batches
+        with torch.no_grad():
+            epoch_loss, epoch_start = 0, time.time()
+            print("Calculating validation results...")
+            model.eval()
+            for img, gt_score_map, gt_geo_map, roi_mask in val_loader:
+                loss, extra_info = model.train_step(img, gt_score_map, gt_geo_map, roi_mask)
+
+                loss_val = loss.item()
+                epoch_loss += loss_val
+
+                val_dict = {
+                    'val_Cls loss': extra_info['cls_loss'], 'val_Angle loss': extra_info['angle_loss'],
+                    'val_IoU loss': extra_info['iou_loss']
+                }
+                val_total_loss={'total_loss': sum(val_dict.values())}
+
+                wandb.log(val_dict, step = epoch)
+                wandb.log(val_total_loss,step=epoch)
+            val_mean_loss={'val_mean_loss':epoch_loss / val_num_batches}
+            wandb.log(val_mean_loss,step=epoch)
+            print(f'Mean loss: {epoch_loss / val_num_batches}')
+
+
+        now_val_loss = epoch_loss / val_num_batches
 
         # 매 에폭마다 latest 저장
         if not osp.exists(model_dir):
